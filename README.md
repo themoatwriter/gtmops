@@ -4,8 +4,8 @@ Deterministic API tool layer for the GTM stack. 9 bash scripts that make your AI
 
 ```yaml
 name: GTMOps
-pack-id: themoatwriter-gtmops-v1.0.0
-version: 1.0.0
+pack-id: themoatwriter-gtmops-v1.1.0
+version: 1.1.0
 author: themoatwriter
 type: skill
 platform: claude-code

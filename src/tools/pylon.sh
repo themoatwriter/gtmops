@@ -4,7 +4,10 @@
 #
 # Commands:
 #   list-accounts     List Pylon accounts
+#   search-account    Search accounts by domain
 #   get-account       Get account details
+#   delete-account    Delete an account
+#   update-account    Update account fields (PATCH)
 #   link-channel      Link a Slack channel to a Pylon account
 #   list-issues       List issues (optionally filtered by account)
 #   get-issue         Get issue details
@@ -12,9 +15,12 @@
 #
 # GOTCHAS BAKED IN:
 #   - Pylon does NOT create Slack channels (only links existing ones)
+#   - Pylon REJECTS private Slack channel IDs via link-channel / update-account
+#   - Pylon auto-creates accounts for public user-* channels (bot must be invited)
 #   - Pylon is source of truth for channel existence
 #   - Issues undercount engagement; Slack conversations.history is better signal
 #   - Account may not exist yet for new signups
+#   - DELETE returns 200 with just request_id (no body confirmation)
 
 set -euo pipefail
 
@@ -101,10 +107,33 @@ case "$COMMAND" in
     api_call GET "/accounts"
     ;;
 
+  search-account)
+    # Search by domain. Returns matching accounts.
+    parse_kv_args "${ARGS[@]}"
+    domain="${ARG_domain:?--domain required}"
+    json=$(jq -n --arg d "$domain" '{filter: {field: "domains", operator: "contains", value: $d}, limit: 1}')
+    api_call POST "/accounts/search" "$json"
+    ;;
+
   get-account)
     parse_kv_args "${ARGS[@]}"
     id="${ARG_id:?--id required}"
     api_call GET "/accounts/$id"
+    ;;
+
+  delete-account)
+    parse_kv_args "${ARGS[@]}"
+    id="${ARG_id:?--id required}"
+    api_call DELETE "/accounts/$id"
+    ;;
+
+  update-account)
+    # PATCH account fields. Use for updating channels, name, domains, etc.
+    # GOTCHA: Pylon REJECTS private Slack channel IDs in channels array
+    parse_kv_args "${ARGS[@]}"
+    id="${ARG_id:?--id required}"
+    json="${ARG_json:?--json required (e.g. '{\"channels\": [{\"channel_id\": \"C0XX\", \"source\": \"slack\", \"is_primary\": true, \"is_internal\": false}]}')}"
+    api_call PATCH "/accounts/$id" "$json"
     ;;
 
   link-channel)
@@ -149,7 +178,10 @@ Usage: Pylon.sh <command> [--dry-run] [options]
 
 Commands:
   list-accounts
+  search-account    --domain DOMAIN
   get-account       --id ACCOUNT_ID
+  delete-account    --id ACCOUNT_ID
+  update-account    --id ACCOUNT_ID --json '{...}'
   link-channel      --account-id ID --channel-id SLACK_CHANNEL_ID
   list-issues       [--account-id ID]
   get-issue         --id ISSUE_ID
@@ -161,9 +193,12 @@ Flags:
 
 GOTCHAS:
   - Pylon does NOT create Slack channels (only links existing channel IDs)
+  - Pylon REJECTS private Slack channel IDs via API
+  - Pylon auto-creates accounts for public user-* channels (bot must be invited)
   - Pylon is source of truth for channel existence
   - Issues undercount engagement; use Slack conversations.history for better signal
   - Account may not exist yet for new signups
+  - DELETE returns 200 with just request_id (no body confirmation)
 USAGE
     ;;
 esac

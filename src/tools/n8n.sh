@@ -5,6 +5,8 @@
 # Commands:
 #   list-workflows    List all workflows
 #   get-workflow       Get workflow definition
+#   create-workflow    Create a new workflow from JSON
+#   export-workflow    Export workflow to portable JSON file
 #   activate           Activate a workflow
 #   deactivate         Deactivate a workflow
 #   update-workflow    Update a workflow (PUT)
@@ -19,9 +21,11 @@
 # GOTCHAS BAKED IN:
 #   - VPS requires network access to your self-hosted instance
 #   - settings field is REQUIRED on update. Min: {"executionOrder": "v1"}
-#   - Extra settings fields (availableInMCP, binaryMode) cause validation errors
+#   - Extra settings fields (availableInMCP, binaryMode, callerPolicy) cause validation errors
 #   - Auth header is X-N8N-API-KEY, not Authorization: Bearer
 #   - n8n Cloud uses different API key than VPS
+#   - Cloud credentials API returns empty array (can't read credential values via API)
+#   - PUT requires "name" field in body or returns 400
 
 set -euo pipefail
 
@@ -164,6 +168,40 @@ case "$COMMAND" in
     api_call PATCH "/workflows/$id" '{"active": false}'
     ;;
 
+  create-workflow)
+    # Create a new workflow from JSON file or inline JSON
+    parse_kv_args "${ARGS[@]}"
+    json="${ARG_json:-}"
+    file="${ARG_file:-}"
+
+    if [[ -n "$file" ]]; then
+      json=$(cat "$file")
+    fi
+
+    if [[ -z "$json" ]]; then
+      echo "Error: --json or --file required" >&2
+      exit 1
+    fi
+
+    # Ensure settings has executionOrder
+    json=$(echo "$json" | jq 'if .settings == null then .settings = {"executionOrder": "v1"} else . end')
+
+    response=$(api_call POST "/workflows" "$json")
+    echo "$response" | jq '{id, name, active, createdAt}'
+    ;;
+
+  export-workflow)
+    # Export a workflow to a local JSON file (portable, can be re-imported)
+    parse_kv_args "${ARGS[@]}"
+    id="${ARG_id:?--id required}"
+    file="${ARG_file:?--file required (output path)}"
+
+    response=$(api_call GET "/workflows/$id")
+    # Strip server-only fields, keep portable structure
+    echo "$response" | jq '{name, nodes, connections, settings: {executionOrder: (.settings.executionOrder // "v1")}}' > "$file"
+    echo "Exported to $file ($(echo "$response" | jq '.nodes | length') nodes)"
+    ;;
+
   update-workflow)
     # GOTCHA: settings is REQUIRED. Strip non-standard fields.
     parse_kv_args "${ARGS[@]}"
@@ -251,6 +289,8 @@ Instances:
 Commands:
   list-workflows                          List all workflows (id, name, active)
   get-workflow       --id WORKFLOW_ID      Get full workflow definition
+  create-workflow    --file path OR --json '{}'   Create new workflow from JSON
+  export-workflow    --id WORKFLOW_ID --file path  Export workflow to portable JSON
   activate           --id WORKFLOW_ID      Activate workflow
   deactivate         --id WORKFLOW_ID      Deactivate workflow
   update-workflow    --id ID --json '{}' OR --file path   Update workflow
@@ -266,8 +306,10 @@ GOTCHAS:
   - VPS requires network access (check VPN if using one)
   - Auth is X-N8N-API-KEY header, not Bearer
   - settings field REQUIRED on update: {"executionOrder": "v1"}
-  - Extra settings fields cause validation errors, strip them
+  - Extra settings fields (availableInMCP, binaryMode, callerPolicy) cause validation errors
   - Cloud and VPS use different API keys
+  - Cloud credentials API returns empty array (can't read credential values)
+  - PUT requires "name" field in body or returns 400
 USAGE
     ;;
 esac

@@ -10,12 +10,20 @@
 #   update-field      Update a specific field on a record
 #   list-objects      List all objects (for discovering IDs)
 #   list-attributes   List attributes for an object
+#   list-members      List workspace members (id, name, email)
+#   create-task       Create a task assigned to a workspace member
+#
+# Multi-workspace support:
+#   Set ATTIO_API_KEY_<NAME> in .env for additional workspaces
+#   Use --workspace <name> to switch (e.g. --workspace team)
 #
 # GOTCHAS BAKED IN:
 #   - Use PUT (upsert) not find+patch. Records may not exist yet for new signups.
 #   - Person matching is by email_addresses, company by domains
 #   - Custom fields use attribute slug, not display name
 #   - Attio returns nested value objects: {attribute_type, values: [{value}]}
+#   - Tasks API requires is_completed, assignees, and linked_records fields (all mandatory)
+#   - Domain upsert can match wrong company if domain is shared across records
 
 set -euo pipefail
 
@@ -31,13 +39,9 @@ if [[ -f "$GTMOPS_DIR/.env" ]]; then
   ATTIO_API_KEY="${ATTIO_API_KEY:-$(grep '^ATTIO_API_KEY=' "$GTMOPS_DIR/.env" | cut -d'=' -f2-)}"
 fi
 
-if [[ -z "${ATTIO_API_KEY:-}" ]]; then
-  echo "Error: ATTIO_API_KEY not set in environment or $GTMOPS_DIR/.env" >&2
-  exit 1
-fi
-
 BASE_URL="https://api.attio.com/v2"
 DRY_RUN=false
+WORKSPACE="default"
 
 ARGS=()
 for arg in "$@"; do
@@ -47,6 +51,40 @@ for arg in "$@"; do
     *) ARGS+=("$arg") ;;
   esac
 done
+
+# Extract --workspace before command parsing
+FILTERED_ARGS=()
+i=0
+while [[ $i -lt ${#ARGS[@]} ]]; do
+  if [[ "${ARGS[$i]}" == "--workspace" ]]; then
+    i=$((i + 1))
+    WORKSPACE="${ARGS[$i]:-default}"
+  else
+    FILTERED_ARGS+=("${ARGS[$i]}")
+  fi
+  i=$((i + 1))
+done
+ARGS=("${FILTERED_ARGS[@]}")
+
+# Select API key based on workspace
+if [[ "$WORKSPACE" != "default" ]]; then
+  ws_upper=$(echo "$WORKSPACE" | tr '[:lower:]' '[:upper:]')
+  ws_key="ATTIO_API_KEY_${ws_upper}"
+  if [[ -f "$GTMOPS_DIR/.env" ]]; then
+    ATTIO_API_KEY="${!ws_key:-$(grep "^${ws_key}=" "$GTMOPS_DIR/.env" | cut -d'=' -f2-)}"
+  else
+    ATTIO_API_KEY="${!ws_key:-}"
+  fi
+  if [[ -z "${ATTIO_API_KEY:-}" ]]; then
+    echo "Error: ${ws_key} not set for workspace '$WORKSPACE'" >&2
+    exit 1
+  fi
+else
+  if [[ -z "${ATTIO_API_KEY:-}" ]]; then
+    echo "Error: ATTIO_API_KEY not set in environment or $GTMOPS_DIR/.env" >&2
+    exit 1
+  fi
+fi
 
 COMMAND="${COMMAND:-${ARGS[0]:-help}}"
 if [[ ${#ARGS[@]} -gt 1 ]]; then
@@ -209,11 +247,45 @@ case "$COMMAND" in
     api_call GET "/objects/$object/attributes"
     ;;
 
+  list-members)
+    api_call GET "/workspace_members" | jq '.data[] | {id: .id.workspace_member_id, name: (.first_name + " " + .last_name), email: .email_address}'
+    ;;
+
+  create-task)
+    # GOTCHA: is_completed, assignees, and linked_records are ALL required
+    parse_kv_args "${ARGS[@]}"
+    content="${ARG_content:?--content required}"
+    assignee="${ARG_assignee:?--assignee required (workspace member ID)}"
+
+    json=$(jq -n \
+      --arg content "$content" \
+      --arg assignee "$assignee" \
+      '{
+        data: {
+          content: $content,
+          format: "plaintext",
+          deadline_at: null,
+          is_completed: false,
+          assignees: [{
+            referenced_actor_type: "workspace-member",
+            referenced_actor_id: $assignee
+          }],
+          linked_records: []
+        }
+      }')
+
+    api_call POST "/tasks" "$json"
+    ;;
+
   help|*)
     cat <<'USAGE'
 Attio v2 API wrapper (GTMOps)
 
-Usage: Attio.sh <command> [--dry-run] [options]
+Usage: Attio.sh <command> [--workspace NAME] [--dry-run] [options]
+
+Workspaces:
+  --workspace default   Uses ATTIO_API_KEY (default)
+  --workspace team      Uses ATTIO_API_KEY_TEAM (set in .env)
 
 Commands:
   upsert-person     --email EMAIL [--field key=value ...]
@@ -223,6 +295,8 @@ Commands:
   update-field      --object OBJECT --record-id ID --field key=value [...]
   list-objects       (discover object IDs)
   list-attributes   --object OBJECT (discover field slugs)
+  list-members       List workspace members (id, name, email)
+  create-task       --content "Task text" --assignee MEMBER_ID
 
 Flags:
   --dry-run    Print curl command without executing
@@ -233,6 +307,8 @@ GOTCHAS:
   - Person matching is by email_addresses, company by domains
   - Custom fields use attribute slug, not display name
   - list-records uses POST (not GET) - Attio's query endpoint
+  - Tasks API requires is_completed, assignees, and linked_records (all mandatory)
+  - Domain upsert can match wrong company if domain is shared across records
 USAGE
     ;;
 esac
