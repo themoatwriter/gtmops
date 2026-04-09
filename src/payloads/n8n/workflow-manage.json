@@ -1,0 +1,75 @@
+{
+  "_description": "Manage n8n workflows: list, activate, deactivate, update, deploy",
+  "_tool": "n8n.sh",
+
+  "_list_workflows": {
+    "_curl_vps": "curl -s '$N8N_VPS_URL/api/v1/workflows' -H 'X-N8N-API-KEY: $N8N_API_KEY' | jq '[.data[] | {id, name, active}]'",
+    "_curl_cloud": "curl -s '$N8N_CLOUD_URL/api/v1/workflows' -H 'X-N8N-API-KEY: $N8N_CLOUD_API_KEY' | jq '[.data[] | {id, name, active}]'",
+    "_tool": "n8n.sh list-workflows",
+    "_tool_cloud": "n8n.sh list-workflows --instance cloud"
+  },
+
+  "_get_workflow": {
+    "_curl": "curl -s '$N8N_VPS_URL/api/v1/workflows/YOUR_WORKFLOW_ID' -H 'X-N8N-API-KEY: $N8N_API_KEY'",
+    "_tool": "n8n.sh get-workflow --id YOUR_WORKFLOW_ID"
+  },
+
+  "_activate": {
+    "_curl": "curl -s -X PATCH '$N8N_VPS_URL/api/v1/workflows/YOUR_WORKFLOW_ID' -H 'X-N8N-API-KEY: $N8N_API_KEY' -H 'Content-Type: application/json' -d '{\"active\": true}'",
+    "_tool": "n8n.sh activate --id YOUR_WORKFLOW_ID"
+  },
+
+  "_deactivate": {
+    "_curl": "curl -s -X PATCH '$N8N_VPS_URL/api/v1/workflows/YOUR_WORKFLOW_ID' -H 'X-N8N-API-KEY: $N8N_API_KEY' -H 'Content-Type: application/json' -d '{\"active\": false}'",
+    "_tool": "n8n.sh deactivate --id YOUR_WORKFLOW_ID"
+  },
+
+  "_update_workflow": {
+    "_description": "Fetch, modify, push back. Settings field is REQUIRED.",
+    "_gotchas": [
+      "settings MUST include {\"executionOrder\": \"v1\"} at minimum",
+      "Extra settings fields (availableInMCP, binaryMode) cause validation errors",
+      "Only send: name, nodes, connections, settings in the PUT body",
+      "Strip everything else from the GET response before PUTting back"
+    ],
+    "_pattern": [
+      "1. n8n.sh get-workflow --id X > /tmp/workflow.json",
+      "2. Edit the JSON (modify node params, add nodes, etc.)",
+      "3. jq '{name, nodes, connections, settings}' /tmp/workflow.json > /tmp/update.json",
+      "4. n8n.sh update-workflow --id X --file /tmp/update.json"
+    ],
+    "_curl": "curl -s -X PUT '$N8N_VPS_URL/api/v1/workflows/YOUR_WORKFLOW_ID' -H 'X-N8N-API-KEY: $N8N_API_KEY' -H 'Content-Type: application/json' -d @/tmp/update.json"
+  },
+
+  "_reactivate_workflow": {
+    "_description": "Deactivate then reactivate a workflow. Use when a workflow is stuck, a node was updated, or you need to reset webhook listeners. Without this pattern, n8n may not pick up changes.",
+    "_gotchas": [
+      "Must deactivate BEFORE reactivating. Activating an already-active workflow is a no-op.",
+      "Add a 1-2 second pause between deactivate and activate to avoid race conditions with external triggers (Zapier, webhooks).",
+      "If the workflow has a Catch Hook (like Zapier step 1), the external service may fire during the gap. Keep the pause short.",
+      "After reactivation, verify active status in the response: {\"active\": true}"
+    ],
+    "_tool_pattern": [
+      "n8n.sh deactivate --id YOUR_WORKFLOW_ID",
+      "sleep 1",
+      "n8n.sh activate --id YOUR_WORKFLOW_ID"
+    ],
+    "_curl_pattern": [
+      "curl -s -X PATCH '$N8N_VPS_URL/api/v1/workflows/YOUR_WORKFLOW_ID' -H 'X-N8N-API-KEY: $N8N_API_KEY' -H 'Content-Type: application/json' -d '{\"active\": false}'",
+      "sleep 1",
+      "curl -s -X PATCH '$N8N_VPS_URL/api/v1/workflows/YOUR_WORKFLOW_ID' -H 'X-N8N-API-KEY: $N8N_API_KEY' -H 'Content-Type: application/json' -d '{\"active\": true}'"
+    ],
+    "_when_to_use": [
+      "Workflow updated but changes not taking effect",
+      "Webhook listener seems dead (external service gets timeouts)",
+      "Node configuration changed and you need n8n to re-register",
+      "Race condition with external triggers (deactivate, wait, reactivate)"
+    ]
+  },
+
+  "_trigger_webhook": {
+    "_description": "Manually trigger a webhook-based workflow",
+    "_curl": "curl -s -X POST '$N8N_VPS_URL/webhook/YOUR_WEBHOOK_PATH' -H 'Content-Type: application/json' -d '{\"email\": \"test@example.com\"}'",
+    "_tool": "n8n.sh trigger --url '$N8N_VPS_URL/webhook/YOUR_WEBHOOK_PATH' --data '{\"email\": \"test@example.com\"}'"
+  }
+}

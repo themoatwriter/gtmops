@@ -1,0 +1,81 @@
+{
+  "_description": "Firecrawl web scraping, search, and crawling flows",
+  "_tool": "firecrawl.sh",
+  "_gotchas": [
+    "Auth is Authorization: Bearer (standard)",
+    "scrape returns markdown by default (best for LLM consumption)",
+    "crawl is ASYNC - returns job ID, poll with crawl-status",
+    "Cloudflare sites may need waitFor param in milliseconds",
+    "search costs 1 credit per result returned",
+    "map is cheapest way to discover URLs before selective scraping"
+  ],
+
+  "_scrape_single_page": {
+    "_description": "Scrape a URL and get markdown content. Best for reading a specific page.",
+    "_curl": "curl -s -X POST 'https://api.firecrawl.dev/v1/scrape' -H 'Authorization: Bearer $FIRECRAWL_API_KEY' -H 'Content-Type: application/json' -d '{\"url\": \"https://acme.com/about\", \"formats\": [\"markdown\"]}'",
+    "_tool": "firecrawl.sh scrape --url https://acme.com/about",
+    "_response_shape": {
+      "success": true,
+      "data": {
+        "markdown": "# About Acme Corp\n\nWe build...",
+        "metadata": {
+          "title": "About - Acme Corp",
+          "description": "...",
+          "url": "https://acme.com/about",
+          "statusCode": 200
+        }
+      }
+    }
+  },
+
+  "_scrape_cloudflare_site": {
+    "_description": "For Cloudflare-protected or JS-heavy sites, add waitFor",
+    "_tool": "firecrawl.sh scrape --url https://protected-site.com --wait-for 3000",
+    "_note": "waitFor is milliseconds. 3000 = 3 seconds. Costs same credits but takes longer."
+  },
+
+  "_search": {
+    "_description": "Search the web and get markdown content for each result. Like Serper + scrape in one call.",
+    "_curl": "curl -s -X POST 'https://api.firecrawl.dev/v1/search' -H 'Authorization: Bearer $FIRECRAWL_API_KEY' -H 'Content-Type: application/json' -d '{\"query\": \"SaaS event venues Austin TX\", \"limit\": 5}'",
+    "_tool": "firecrawl.sh search --q 'SaaS event venues Austin TX' --limit 5",
+    "_response_shape": {
+      "success": true,
+      "data": [
+        {
+          "url": "https://...",
+          "title": "...",
+          "description": "...",
+          "markdown": "Full page content..."
+        }
+      ]
+    }
+  },
+
+  "_crawl_site": {
+    "_description": "Crawl a site starting from a URL. ASYNC operation.",
+    "_step_1_start": {
+      "_curl": "curl -s -X POST 'https://api.firecrawl.dev/v1/crawl' -H 'Authorization: Bearer $FIRECRAWL_API_KEY' -H 'Content-Type: application/json' -d '{\"url\": \"https://acme.com\", \"limit\": 10}'",
+      "_tool": "firecrawl.sh crawl --url https://acme.com --limit 10",
+      "_response": { "success": true, "id": "crawl-job-id-here" }
+    },
+    "_step_2_poll": {
+      "_tool": "firecrawl.sh crawl-status --id crawl-job-id-here",
+      "_statuses": ["scraping", "completed", "failed"]
+    }
+  },
+
+  "_map_site": {
+    "_description": "Fast sitemap/URL extraction. No content, just URLs. Cheapest operation.",
+    "_curl": "curl -s -X POST 'https://api.firecrawl.dev/v1/map' -H 'Authorization: Bearer $FIRECRAWL_API_KEY' -H 'Content-Type: application/json' -d '{\"url\": \"https://acme.com\"}'",
+    "_tool": "firecrawl.sh map --url https://acme.com",
+    "_use_case": "Discover all pages on a site, then selectively scrape the interesting ones"
+  },
+
+  "_escalation_pattern": {
+    "_description": "Cost-efficient scraping ladder",
+    "tier_0": "Serper search (1 credit) - find URLs, get snippets",
+    "tier_1": "Firecrawl map (cheap) - discover all pages on a domain",
+    "tier_2": "Firecrawl scrape (1 credit) - read specific pages as markdown",
+    "tier_3": "Firecrawl crawl (1 credit/page) - read entire sites"
+  }
+}

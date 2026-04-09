@@ -1,0 +1,46 @@
+{
+  "_description": "Query and filter records in Attio. List uses POST, not GET.",
+  "_tool": "attio.sh list-records",
+  "_gotchas": [
+    "list-records uses POST to /objects/{object}/records/query, not GET",
+    "Filter syntax uses attribute slug + operator",
+    "Pagination via offset, not cursor"
+  ],
+
+  "_list_all_people": {
+    "_curl": "curl -s -X POST 'https://api.attio.com/v2/objects/people/records/query' -H 'Authorization: Bearer $ATTIO_API_KEY' -H 'Content-Type: application/json' -d '{\"limit\": 50}'",
+    "_tool": "attio.sh list-records --object people --limit 50"
+  },
+
+  "_list_all_companies": {
+    "_curl": "curl -s -X POST 'https://api.attio.com/v2/objects/companies/records/query' -H 'Authorization: Bearer $ATTIO_API_KEY' -H 'Content-Type: application/json' -d '{\"limit\": 50}'",
+    "_tool": "attio.sh list-records --object companies --limit 50"
+  },
+
+  "_filtered_query": {
+    "_description": "Filter people by custom field",
+    "_curl": "curl -s -X POST 'https://api.attio.com/v2/objects/people/records/query' -H 'Authorization: Bearer $ATTIO_API_KEY' -H 'Content-Type: application/json' -d '{\"filter\": {\"your_custom_field\": {\"$eq\": true}}, \"limit\": 100}'",
+    "filter": {
+      "your_custom_field": { "$eq": true }
+    },
+    "limit": 100
+  },
+
+  "_get_single_record": {
+    "_curl": "curl -s -X GET 'https://api.attio.com/v2/objects/people/records/YOUR_RECORD_ID' -H 'Authorization: Bearer $ATTIO_API_KEY'",
+    "_tool": "attio.sh get-record --object people --record-id YOUR_RECORD_ID"
+  },
+
+  "_discover_field_slugs": {
+    "_description": "List all attributes to find the right slug for a field",
+    "_curl": "curl -s -X GET 'https://api.attio.com/v2/objects/people/attributes' -H 'Authorization: Bearer $ATTIO_API_KEY'",
+    "_tool": "attio.sh list-attributes --object people",
+    "_tip": "Pipe through jq '.data[] | {slug: .api_slug, title: .title, type: .type}' to get a clean list"
+  },
+
+  "_discover_objects": {
+    "_description": "List all objects to find IDs for custom objects",
+    "_curl": "curl -s -X GET 'https://api.attio.com/v2/objects' -H 'Authorization: Bearer $ATTIO_API_KEY'",
+    "_tool": "attio.sh list-objects"
+  }
+}

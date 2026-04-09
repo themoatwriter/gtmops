@@ -1,0 +1,71 @@
+{
+  "_description": "Create an email sequence (subsequence) for an Instantly campaign. Must exist before leads show in campaign UI.",
+  "_tool": "N/A - use curl directly, not yet in instantly.sh",
+  "_gotchas": [
+    "Subsequences MUST be created before leads appear in campaign UI",
+    "Each step has delay (days) and variants (array of {subject, body})",
+    "Campaign must exist first",
+    "conditions can be empty object {}",
+    "subsequence_schedule mirrors campaign_schedule"
+  ],
+
+  "_curl": "curl -s -X POST 'https://api.instantly.ai/api/v2/subsequences' -H 'Authorization: Bearer $INSTANTLY_API_KEY' -H 'Content-Type: application/json' -d '@subsequence.json'",
+
+  "parent_campaign": "{{campaign_uuid}}",
+  "name": "Main Sequence",
+  "conditions": {},
+  "subsequence_schedule": {
+    "timezone": "America/Chicago"
+  },
+  "sequences": [
+    {
+      "steps": [
+        {
+          "type": "email",
+          "delay": 0,
+          "variants": [
+            {
+              "subject": "{{email_subject}}",
+              "body": "Hi {{first_name}},\n\n{{email_body}}\n\n{{signature}}"
+            }
+          ]
+        },
+        {
+          "type": "email",
+          "delay": 3,
+          "variants": [
+            {
+              "subject": "Re: {{email_subject}}",
+              "body": "{{follow_up_body}}"
+            }
+          ]
+        },
+        {
+          "type": "email",
+          "delay": 5,
+          "variants": [
+            {
+              "subject": "Re: {{email_subject}}",
+              "body": "{{final_follow_up_body}}"
+            }
+          ]
+        }
+      ]
+    }
+  ],
+
+  "_field_map": {
+    "parent_campaign": "Campaign UUID from instantly.sh create-campaign response",
+    "delay": "Days after previous step. 0 = send immediately when lead is added",
+    "variants": "Array of subject/body pairs. Multiple variants = A/B test",
+    "type": "Always 'email' for now. Instantly may add other types later."
+  },
+
+  "_personalization_variables": {
+    "{{first_name}}": "Lead's first name from Instantly",
+    "{{last_name}}": "Lead's last name",
+    "{{company_name}}": "Lead's company",
+    "{{email}}": "Lead's email",
+    "{{custom.signal_thesis}}": "Custom variable from lead payload object"
+  }
+}

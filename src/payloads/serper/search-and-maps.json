@@ -1,0 +1,85 @@
+{
+  "_description": "Serper.dev Google Search + Maps + Reviews flows",
+  "_tool": "serper.sh",
+  "_gotchas": [
+    "Auth is X-API-KEY header, not Bearer",
+    "Maps returns places array, use places[0] for single result",
+    "Reviews needs placeId from maps result, NOT a search query",
+    "1 credit per search, 4 credits per maps, 10 credits per reviews",
+    "num max is 100 per request",
+    "gl param for country targeting (us, uk, de, etc.)"
+  ],
+
+  "_web_search": {
+    "_description": "Google web search. Good for discovery, news, finding URLs.",
+    "_curl": "curl -s -X POST 'https://google.serper.dev/search' -H 'X-API-KEY: $SERPER_API_KEY' -H 'Content-Type: application/json' -d '{\"q\": \"site:facebook.com Austin TX live music venues\", \"num\": 20}'",
+    "_tool": "serper.sh search --q 'site:facebook.com Austin TX live music venues' --num 20",
+    "_response_shape": {
+      "organic": [
+        {
+          "title": "Result title",
+          "link": "https://...",
+          "snippet": "Description text",
+          "position": 1
+        }
+      ],
+      "searchParameters": {
+        "q": "the query",
+        "num": 20
+      }
+    }
+  },
+
+  "_maps_search": {
+    "_description": "Google Maps place lookup. Returns place details + placeId for reviews.",
+    "_curl": "curl -s -X POST 'https://google.serper.dev/maps' -H 'X-API-KEY: $SERPER_API_KEY' -H 'Content-Type: application/json' -d '{\"q\": \"Acme Arena Austin TX\", \"num\": 1}'",
+    "_tool": "serper.sh maps --q 'Acme Arena Austin TX' --num 1",
+    "_response_shape": {
+      "places": [
+        {
+          "title": "Acme Arena",
+          "address": "123 Main St, Austin, TX",
+          "placeId": "ChIJ...",
+          "rating": 4.5,
+          "ratingCount": 230,
+          "category": "Event Venue",
+          "website": "https://acmearena.com",
+          "phoneNumber": "+1-512-555-0100"
+        }
+      ]
+    }
+  },
+
+  "_reviews": {
+    "_description": "Google Reviews for a place. Needs placeId from maps result.",
+    "_curl": "curl -s -X POST 'https://google.serper.dev/reviews' -H 'X-API-KEY: $SERPER_API_KEY' -H 'Content-Type: application/json' -d '{\"placeId\": \"ChIJ...\", \"num\": 10}'",
+    "_tool": "serper.sh reviews --place-id 'ChIJ...' --num 10",
+    "_response_shape": {
+      "reviews": [
+        {
+          "author": "Jane D.",
+          "rating": 5,
+          "snippet": "Review text",
+          "date": "2 months ago"
+        }
+      ]
+    }
+  },
+
+  "_site_search_pattern": {
+    "_description": "Use site: prefix to search within a specific domain. Cheapest way to find pages.",
+    "_examples": [
+      "site:facebook.com 'Austin TX' 'live music'",
+      "site:eventbrite.com 'rodeo' 'Texas'",
+      "site:linkedin.com/in 'VP Marketing' 'Austin'"
+    ],
+    "_tool": "serper.sh search --q 'site:facebook.com Austin TX live music' --num 20"
+  },
+
+  "_cost_optimization": {
+    "discovery": "Use search (1 credit) to find URLs first",
+    "place_details": "Use maps (4 credits) only when you need address/phone/rating",
+    "reviews": "Use reviews (10 credits) only for signal validation",
+    "pattern": "search -> filter -> maps -> reviews (escalating cost)"
+  }
+}

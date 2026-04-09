@@ -1,0 +1,81 @@
+{
+  "_description": "Bigin CRM deal operations: list, create, update stage, search",
+  "_tool": "bigin.sh",
+  "_gotchas": [
+    "OAuth2 with refresh tokens. Access token expires every hour.",
+    "bigin.sh auto-refreshes on INVALID_TOKEN, but first call needs BIGIN_REFRESH_TOKEN in .env",
+    "Module names are case-sensitive: 'Deals', 'Contacts', 'Pipelines'",
+    "Stage updates use the same update endpoint, just set Pipeline_Stage",
+    "Rate limit: 100 req/min per org",
+    "Data wraps in {data: [...]} for create/update"
+  ],
+
+  "_list_deals": {
+    "_curl": "curl -s 'https://www.zohoapis.com/bigin/v2/Deals?fields=Deal_Name,Stage,Amount,Contact_Name&per_page=20' -H 'Authorization: Zoho-oauthtoken $BIGIN_ACCESS_TOKEN'",
+    "_tool": "bigin.sh list-deals --fields Deal_Name,Stage,Amount,Contact_Name --limit 20"
+  },
+
+  "_get_deal": {
+    "_curl": "curl -s 'https://www.zohoapis.com/bigin/v2/Deals/YOUR_DEAL_ID' -H 'Authorization: Zoho-oauthtoken $BIGIN_ACCESS_TOKEN'",
+    "_tool": "bigin.sh get-deal --id YOUR_DEAL_ID"
+  },
+
+  "_create_deal": {
+    "_curl": "curl -s -X POST 'https://www.zohoapis.com/bigin/v2/Deals' -H 'Authorization: Zoho-oauthtoken $BIGIN_ACCESS_TOKEN' -H 'Content-Type: application/json' -d '{\"data\": [{\"Deal_Name\": \"Acme Corp - Partnership\", \"Pipeline_Stage\": \"Qualification\", \"Amount\": 5000, \"Contact_Name\": {\"id\": \"YOUR_CONTACT_ID\"}}]}'",
+    "_tool": "bigin.sh create-deal --json '{\"Deal_Name\": \"Acme Corp - Partnership\", \"Pipeline_Stage\": \"Qualification\", \"Amount\": 5000}'",
+    "data": [{
+      "Deal_Name": "{{company_name}} - {{deal_type}}",
+      "Pipeline_Stage": "Qualification",
+      "Amount": 5000,
+      "Contact_Name": { "id": "{{contact_id}}" }
+    }]
+  },
+
+  "_update_stage": {
+    "_description": "Move a deal to a new pipeline stage",
+    "_curl": "curl -s -X PUT 'https://www.zohoapis.com/bigin/v2/Deals' -H 'Authorization: Zoho-oauthtoken $BIGIN_ACCESS_TOKEN' -H 'Content-Type: application/json' -d '{\"data\": [{\"id\": \"YOUR_DEAL_ID\", \"Pipeline_Stage\": \"Connected\"}]}'",
+    "_tool": "bigin.sh update-stage --id YOUR_DEAL_ID --stage Connected"
+  },
+
+  "_search_by_email": {
+    "_curl": "curl -s 'https://www.zohoapis.com/bigin/v2/Contacts/search?criteria=Email:equals:jane@acme.com' -H 'Authorization: Zoho-oauthtoken $BIGIN_ACCESS_TOKEN'",
+    "_tool": "bigin.sh search --module Contacts --criteria 'Email:equals:jane@acme.com'"
+  },
+
+  "_search_by_deal_name": {
+    "_curl": "curl -s 'https://www.zohoapis.com/bigin/v2/Deals/search?criteria=Deal_Name:contains:Acme' -H 'Authorization: Zoho-oauthtoken $BIGIN_ACCESS_TOKEN'",
+    "_tool": "bigin.sh search --module Deals --criteria 'Deal_Name:contains:Acme'"
+  },
+
+  "_refresh_token": {
+    "_description": "Manually refresh when auto-refresh fails",
+    "_curl": "curl -s -X POST 'https://accounts.zoho.com/oauth/v2/token' -d 'refresh_token=$BIGIN_REFRESH_TOKEN&client_id=$BIGIN_CLIENT_ID&client_secret=$BIGIN_CLIENT_SECRET&grant_type=refresh_token'",
+    "_tool": "bigin.sh token-refresh"
+  },
+
+  "_example_pipeline_stages": [
+    "Qualification",
+    "Connected",
+    "Meeting Scheduled",
+    "Proposal Sent",
+    "Negotiation",
+    "Closed Won",
+    "Closed Lost"
+  ],
+
+  "_common_fields": {
+    "Deal_Name": "Format: '{Company} - {Deal Type}'",
+    "Pipeline_Stage": "One of your configured pipeline stages",
+    "Amount": "Number, no currency symbol",
+    "Contact_Name": "Lookup to Contacts module, use {id: contact_id}",
+    "Description": "Free text notes",
+    "Closing_Date": "YYYY-MM-DD format"
+  },
+
+  "_search_operators": {
+    "equals": "Exact match",
+    "contains": "Substring match",
+    "starts_with": "Prefix match",
+    "ends_with": "Suffix match"
+  }
+}

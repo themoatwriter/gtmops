@@ -1,0 +1,38 @@
+{
+  "_description": "Bigin CRM contact creation and lookup",
+  "_tool": "bigin.sh",
+  "_gotchas": [
+    "Contact lookup by email before creating to avoid duplicates",
+    "Phone field accepts any format but clean it for consistency",
+    "Company_Name is a text field, not a lookup (Bigin doesn't have a separate Companies module)",
+    "Data wraps in {data: [...]} for create"
+  ],
+
+  "_create_contact": {
+    "_curl": "curl -s -X POST 'https://www.zohoapis.com/bigin/v2/Contacts' -H 'Authorization: Zoho-oauthtoken $BIGIN_ACCESS_TOKEN' -H 'Content-Type: application/json' -d '{\"data\": [{\"First_Name\": \"Jane\", \"Last_Name\": \"Doe\", \"Email\": \"jane@acme.com\", \"Phone\": \"+1-512-555-0100\", \"Company_Name\": \"Acme Corp\", \"Title\": \"VP Marketing\"}]}'",
+    "_tool": "bigin.sh create-contact --json '{\"First_Name\": \"Jane\", \"Last_Name\": \"Doe\", \"Email\": \"jane@acme.com\", \"Phone\": \"+1-512-555-0100\", \"Company_Name\": \"Acme Corp\", \"Title\": \"VP Marketing\"}'",
+    "data": [{
+      "First_Name": "{{first_name}}",
+      "Last_Name": "{{last_name}}",
+      "Email": "{{email}}",
+      "Phone": "{{phone}}",
+      "Company_Name": "{{company_name}}",
+      "Title": "{{title}}"
+    }]
+  },
+
+  "_check_before_create": {
+    "_description": "Always search by email first to avoid duplicates",
+    "_tool": "bigin.sh search --module Contacts --criteria 'Email:equals:{{email}}'",
+    "_curl": "curl -s 'https://www.zohoapis.com/bigin/v2/Contacts/search?criteria=Email:equals:jane@acme.com' -H 'Authorization: Zoho-oauthtoken $BIGIN_ACCESS_TOKEN'"
+  },
+
+  "_clay_to_bigin_field_map": {
+    "clay.first_name": "First_Name",
+    "clay.last_name": "Last_Name",
+    "clay.work_email": "Email",
+    "clay.phone": "Phone",
+    "clay.company_name": "Company_Name",
+    "clay.title": "Title"
+  }
+}

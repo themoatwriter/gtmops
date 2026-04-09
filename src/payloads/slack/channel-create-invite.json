@@ -1,0 +1,48 @@
+{
+  "_description": "Create a Slack channel and send a Slack Connect invite",
+  "_tool": "slack-connect.sh create-channel + slack-connect.sh invite-shared",
+  "_gotchas": [
+    "Channel names: lowercase, no spaces, max 80 chars, hyphens OK",
+    "invite-shared works on EXISTING channels too, not just newly created ones",
+    "Invite lands in whatever workspace owns the target email",
+    "Requires scopes: channels:manage, groups:write, conversations.connect:write",
+    "Rate limit: Tier 2 = 20 req/min for conversation methods"
+  ],
+
+  "_step_1_create_channel": {
+    "_curl": "curl -s -X POST 'https://slack.com/api/conversations.create' -H 'Authorization: Bearer $SLACK_BOT_TOKEN' -H 'Content-Type: application/json' -d '{\"name\": \"client-acmecorp\", \"is_private\": false}'",
+    "_tool": "slack-connect.sh create-channel --name client-acmecorp",
+    "name": "client-{{company_slug}}",
+    "is_private": false,
+    "_response": {
+      "ok": true,
+      "channel": {
+        "id": "C0ABC123DEF",
+        "name": "client-acmecorp"
+      }
+    }
+  },
+
+  "_step_2_invite_shared": {
+    "_curl": "curl -s -X POST 'https://slack.com/api/conversations.inviteShared' -H 'Authorization: Bearer $SLACK_BOT_TOKEN' -H 'Content-Type: application/json' -d '{\"channel\": \"C0ABC123DEF\", \"emails\": [\"founder@acme.com\"]}'",
+    "_tool": "slack-connect.sh invite-shared --channel C0ABC123DEF --email founder@acme.com",
+    "channel": "{{channel_id_from_step_1}}",
+    "emails": ["{{invite_email}}"],
+    "_response": {
+      "ok": true,
+      "invite_id": "I0123456789",
+      "is_legacy_shared_channel": false
+    }
+  },
+
+  "_invite_to_existing_channel": {
+    "_description": "Send invite to an already-existing channel (re-invite or new person)",
+    "_curl": "curl -s -X POST 'https://slack.com/api/conversations.inviteShared' -H 'Authorization: Bearer $SLACK_BOT_TOKEN' -H 'Content-Type: application/json' -d '{\"channel\": \"C0EXISTING\", \"emails\": [\"newperson@company.com\"]}'",
+    "_tool": "slack-connect.sh invite-shared --channel C0EXISTING --email newperson@company.com"
+  },
+
+  "_channel_naming": {
+    "pattern": "client-{{company_name_slug}}",
+    "examples": ["client-acmecorp", "client-stripe", "client-linear"]
+  }
+}

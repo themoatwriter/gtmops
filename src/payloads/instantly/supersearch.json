@@ -1,0 +1,60 @@
+{
+  "_description": "Instantly SuperSearch filter construction. Count → Preview → Enrich pipeline.",
+  "_gotchas": [
+    "keyword_filter.include is a STRING, not an array",
+    "Use level + department instead of title.include (title returns 0 results)",
+    "Preview returns names/titles ONLY, no emails",
+    "Enrich costs 1 credit per lead, needs a LEAD LIST ID with resource_type: 1",
+    "Always count first (free) before enriching (paid)"
+  ],
+
+  "_step_1_count": {
+    "_description": "Free. Use as decision gate before spending credits.",
+    "_curl": "curl -s -X POST 'https://api.instantly.ai/api/v2/supersearch-enrichment/count-leads-from-supersearch' -H 'Authorization: Bearer $INSTANTLY_API_KEY' -H 'Content-Type: application/json' -d '@filter.json'",
+    "_tool": "instantly.sh supersearch-count --json '{...}'",
+    "filter": {
+      "job_titles": {
+        "level": ["Director", "VP", "C-Suite"],
+        "department": ["Marketing", "Growth"]
+      },
+      "company": {
+        "headcount": { "min": 50, "max": 500 },
+        "industry": ["SaaS", "Technology"]
+      },
+      "location": {
+        "country": "United States",
+        "state": "Texas"
+      },
+      "keyword_filter": {
+        "include": "series A OR series B",
+        "exclude": "intern OR assistant"
+      }
+    }
+  },
+
+  "_step_2_preview": {
+    "_description": "Free. Returns names and titles, NO emails. Use to validate filter quality.",
+    "_curl": "curl -s -X POST 'https://api.instantly.ai/api/v2/supersearch-enrichment/preview-leads-from-supersearch' -H 'Authorization: Bearer $INSTANTLY_API_KEY' -H 'Content-Type: application/json' -d '@filter.json'",
+    "_tool": "instantly.sh supersearch-preview --json '{...}'"
+  },
+
+  "_step_3_enrich": {
+    "_description": "1 CREDIT PER LEAD. Enriches into a lead list. Async - leads appear in list within seconds.",
+    "_curl": "curl -s -X POST 'https://api.instantly.ai/api/v2/supersearch-enrichment/enrich-leads-from-supersearch' -H 'Authorization: Bearer $INSTANTLY_API_KEY' -H 'Content-Type: application/json' -d '{...filter + resource_id + resource_type...}'",
+    "_tool": "instantly.sh supersearch-enrich --list-id LIST_UUID --json '{...}'",
+    "resource_id": "{{lead_list_uuid}}",
+    "resource_type": 1,
+    "_note": "resource_type 1 = lead list. NOT campaign ID."
+  },
+
+  "_field_map": {
+    "job_titles.level": "Seniority: Entry, Manager, Director, VP, C-Suite, Owner",
+    "job_titles.department": "Function: Marketing, Sales, Engineering, Finance, HR, Operations, etc.",
+    "company.headcount": "Employee count range",
+    "company.industry": "Industry vertical",
+    "location.country": "Full country name, not ISO code",
+    "location.state": "Full state name for US",
+    "keyword_filter.include": "STRING with OR/AND operators, not array",
+    "keyword_filter.exclude": "STRING with OR/AND operators"
+  }
+}

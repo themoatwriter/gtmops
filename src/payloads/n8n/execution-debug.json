@@ -1,0 +1,56 @@
+{
+  "_description": "Debug n8n workflow executions. Find what failed, which node, what error.",
+  "_tool": "n8n.sh executions + n8n.sh execution-detail",
+
+  "_list_recent_failures": {
+    "_description": "Get last 10 failed executions for a workflow",
+    "_curl_vps": "curl -s '$N8N_VPS_URL/api/v1/executions?workflowId=YOUR_WORKFLOW_ID&status=error&limit=10' -H 'X-N8N-API-KEY: $N8N_API_KEY'",
+    "_curl_cloud": "curl -s '$N8N_CLOUD_URL/api/v1/executions?workflowId=YOUR_WORKFLOW_ID&status=error&limit=10' -H 'X-N8N-API-KEY: $N8N_CLOUD_API_KEY'",
+    "_tool_vps": "n8n.sh executions --id YOUR_WORKFLOW_ID --status error",
+    "_tool_cloud": "n8n.sh executions --instance cloud --id YOUR_WORKFLOW_ID --status error"
+  },
+
+  "_get_execution_detail": {
+    "_description": "Full node-by-node output. Shows which node errored, the error message, and input/output data.",
+    "_curl": "curl -s '$N8N_VPS_URL/api/v1/executions/YOUR_EXECUTION_ID' -H 'X-N8N-API-KEY: $N8N_API_KEY'",
+    "_tool": "n8n.sh execution-detail --id YOUR_EXECUTION_ID",
+    "_output_format": {
+      "id": "execution_id",
+      "status": "error",
+      "workflow": "Your Workflow Name",
+      "nodes": [
+        {
+          "node": "HTTP Request - Create Lead",
+          "runs": [{
+            "status": "error",
+            "error": "Request failed with status code 422",
+            "items_in": 1,
+            "items_out": 0,
+            "first_item": null
+          }]
+        }
+      ]
+    }
+  },
+
+  "_list_all_executions": {
+    "_curl_vps": "curl -s '$N8N_VPS_URL/api/v1/executions?limit=20' -H 'X-N8N-API-KEY: $N8N_API_KEY'",
+    "_tool": "n8n.sh executions --limit 20"
+  },
+
+  "_debug_checklist": [
+    "1. n8n.sh executions --id WORKFLOW_ID --status error  (find the failed execution)",
+    "2. n8n.sh execution-detail --id EXECUTION_ID  (see which node broke)",
+    "3. Read the error message. Map to GTMOps payload gotchas.",
+    "4. Common: 422 = bad payload shape, 401 = expired token, 429 = rate limit, timeout = network issue"
+  ],
+
+  "_common_errors": {
+    "422 Unprocessable Entity": "Payload shape is wrong. Check the matching GTMOps payload template.",
+    "401 Unauthorized": "API key expired or wrong. Check .env.",
+    "403 Forbidden": "Scope issue or Cloudflare block (Gamma). Check User-Agent.",
+    "429 Too Many Requests": "Rate limit hit. Add wait nodes between API calls.",
+    "ECONNREFUSED": "Target API is down or VPS is unreachable.",
+    "ETIMEDOUT": "Network timeout. Check VPN/network connectivity."
+  }
+}

@@ -1,0 +1,58 @@
+{
+  "_description": "Gamma presentation/document generation with polling",
+  "_tool": "gamma.sh generate + gamma.sh status",
+  "_gotchas": [
+    "Auth: X-API-KEY header, NOT Authorization: Bearer",
+    "User-Agent header REQUIRED or Cloudflare blocks (403, error 1010)",
+    "Response field is generationId, NOT id",
+    "textMode=preserve for reports with exact numbers",
+    "cardSplit=inputTextBreaks respects \\n---\\n for manual slide breaks",
+    "~4 credits per slide, poll status to check remaining",
+    "Keys expire. 403 even with User-Agent = expired key."
+  ],
+
+  "_generate_presentation": {
+    "_curl": "curl -s -X POST 'https://public-api.gamma.app/v1.0/generations' -H 'X-API-KEY: $GAMMA_API_KEY' -H 'User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36' -H 'Content-Type: application/json' -d '{\"inputText\": \"Slide 1\\n---\\nSlide 2\", \"textMode\": \"preserve\", \"format\": \"presentation\", \"cardSplit\": \"inputTextBreaks\"}'",
+    "_tool": "gamma.sh generate --text 'Slide 1\\n---\\nSlide 2' --mode preserve",
+    "_tool_from_file": "gamma.sh generate --file /path/to/content.md --mode preserve",
+    "inputText": "{{slide_content_with_---_separators}}",
+    "textMode": "preserve",
+    "format": "presentation",
+    "cardSplit": "inputTextBreaks",
+    "imageOptions": {
+      "source": "aiGenerated",
+      "stylePreset": "custom",
+      "style": "dark moody tech aesthetic, abstract data visualizations, network nodes, clean geometric shapes, dark backgrounds with accent lighting, no clip art, no cartoons"
+    },
+    "cardOptions": {
+      "dimensions": "16x9"
+    },
+    "_response": {
+      "generationId": "abc123"
+    }
+  },
+
+  "_poll_status": {
+    "_curl": "curl -s 'https://public-api.gamma.app/v1.0/generations/abc123' -H 'X-API-KEY: $GAMMA_API_KEY' -H 'User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36'",
+    "_tool": "gamma.sh status --id abc123",
+    "_response_completed": {
+      "status": "completed",
+      "gammaUrl": "https://gamma.app/docs/...",
+      "credits": { "deducted": 44, "remaining": 156 }
+    },
+    "_statuses": ["pending", "processing", "completed", "failed"]
+  },
+
+  "_text_modes": {
+    "preserve": "Keep exact text. Use for pipeline reports, proposals with specific numbers.",
+    "generate": "Gamma expands your text. Use for outlines/bullet points.",
+    "condense": "Gamma summarizes. Use for long documents."
+  },
+
+  "_formats": {
+    "presentation": "Slides (default)",
+    "document": "Scrollable doc",
+    "social": "Social media format",
+    "webpage": "Web page format"
+  }
+}

@@ -1,0 +1,28 @@
+{
+  "_description": "Create a single lead in Instantly and assign to campaign",
+  "_tool": "instantly.sh create-lead",
+  "_gotchas": [
+    "Use 'campaign' NOT 'campaign_id' - campaign_id silently fails and lead goes nowhere",
+    "custom_variables only work on update (PATCH), not on create (POST)",
+    "No API to link a list to a campaign. Either add leads with campaign param or use UI."
+  ],
+
+  "_curl": "curl -s -X POST 'https://api.instantly.ai/api/v2/leads' -H 'Authorization: Bearer $INSTANTLY_API_KEY' -H 'Content-Type: application/json' -d '{\"email\": \"jane@acme.com\", \"first_name\": \"Jane\", \"last_name\": \"Doe\", \"company_name\": \"Acme Corp\", \"campaign\": \"YOUR_CAMPAIGN_UUID\"}'",
+
+  "email": "{{email}}",
+  "first_name": "{{first_name}}",
+  "last_name": "{{last_name}}",
+  "company_name": "{{company_name}}",
+  "campaign": "{{campaign_uuid}}",
+
+  "_add_to_list_instead": {
+    "_curl": "curl -s -X POST 'https://api.instantly.ai/api/v2/leads' -H 'Authorization: Bearer $INSTANTLY_API_KEY' -H 'Content-Type: application/json' -d '{\"email\": \"jane@acme.com\", \"first_name\": \"Jane\", \"last_name\": \"Doe\", \"list_id\": \"YOUR_LIST_UUID\"}'",
+    "list_id": "{{lead_list_uuid}}"
+  },
+
+  "_update_custom_vars_after": {
+    "_description": "Custom variables must be set via PATCH after lead creation",
+    "_curl": "curl -s -X PATCH 'https://api.instantly.ai/api/v2/leads/{{lead_uuid}}' -H 'Authorization: Bearer $INSTANTLY_API_KEY' -H 'Content-Type: application/json' -d '{\"custom_variables\": {\"source\": \"clay\", \"segment\": \"enterprise\"}}'",
+    "_tool": "instantly.sh update-lead --uuid LEAD_UUID --custom '{\"source\": \"clay\"}'"
+  }
+}

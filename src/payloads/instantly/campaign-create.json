@@ -1,0 +1,34 @@
+{
+  "_description": "Create an Instantly campaign with proper schedule config",
+  "_tool": "instantly.sh create-campaign --name NAME --timezone TZ",
+  "_gotchas": [
+    "Timezone must be from Instantly's allowed list (IANA format)",
+    "Campaign is created in paused state by default",
+    "Must create subsequence AFTER campaign before adding leads",
+    "Use a consistent naming convention for campaigns"
+  ],
+
+  "_curl": "curl -s -X POST 'https://api.instantly.ai/api/v2/campaigns' -H 'Authorization: Bearer $INSTANTLY_API_KEY' -H 'Content-Type: application/json' -d '{\"name\": \"acme-q2-outreach\", \"campaign_schedule\": {\"timezone\": \"America/Chicago\"}}'",
+
+  "name": "{{CAMPAIGN_NAME}}",
+  "campaign_schedule": {
+    "timezone": "America/Chicago"
+  },
+
+  "_response": {
+    "id": "{{campaign_uuid}}",
+    "name": "{{CAMPAIGN_NAME}}",
+    "status": "paused"
+  },
+
+  "_after_create_sequence": [
+    "1. Create subsequence: see instantly/subsequence.json",
+    "2. Add leads: instantly.sh create-lead --email X --campaign {{campaign_uuid}}",
+    "3. Activate campaign via UI (no API endpoint for activation)"
+  ],
+
+  "_naming_tips": {
+    "pattern": "{CLIENT}-{NNN}-{descriptor}",
+    "examples": ["acme-001-enterprise-vps", "contoso-q2-saas-directors"]
+  }
+}
