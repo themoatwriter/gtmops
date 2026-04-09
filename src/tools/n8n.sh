@@ -26,6 +26,12 @@
 #   - n8n Cloud uses different API key than VPS
 #   - Cloud credentials API returns empty array (can't read credential values via API)
 #   - PUT requires "name" field in body or returns 400
+#
+# CLAY HTTP GOTCHAS (Clay POSTs to n8n webhooks):
+#   - Clay "Remove empty values" only strips null/undefined, NOT empty strings ""
+#   - Enrichment misses return "" not null, so HTTP column sees "present but blank" and errors
+#   - Fix: wrap optional fields in ternary conditionals in Clay formula editor
+#   - Always use formula editor (not visual JSON) for conditional Clay HTTP bodies
 
 set -euo pipefail
 

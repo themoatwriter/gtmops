@@ -3,7 +3,8 @@
 // Detects raw curl calls to GTMOps-covered APIs and reminds you to use the wrapper.
 // Also catches tool failures and points to the relevant payload template.
 
-import { readFileSync } from 'fs';
+import { readFileSync, appendFileSync, mkdirSync, existsSync } from 'fs';
+import { join } from 'path';
 
 const TOOL_NAMES: Record<string, string> = {
   'api.instantly.ai': 'instantly.sh',
@@ -71,7 +72,40 @@ function main() {
   }
 
   // Check for wrapper failures
-  if (isWrapper && (exitCode !== 0 || ERROR_PATTERNS.some(p => p.test(output)))) {
+  const hasError = isWrapper && (exitCode !== 0 || ERROR_PATTERNS.some(p => p.test(output)));
+  const isRawCurl = command.includes('curl') && !isWrapper &&
+    Object.keys(TOOL_NAMES).some(d => command.includes(d));
+
+  if (hasError || isRawCurl) {
+    // Log to signals for review next session
+    const GTMOPS_DIR = process.env.GTMOPS_DIR || join(process.env.HOME || '', 'gtmops');
+    const SIGNALS_DIR = join(GTMOPS_DIR, 'signals');
+    const LOG_FILE = join(SIGNALS_DIR, 'gtmops-gotchas.jsonl');
+
+    const api = isRawCurl
+      ? Object.entries(TOOL_NAMES).find(([d]) => command.includes(d))?.[1]?.replace('.sh', '') || 'unknown'
+      : (WRAPPER_PATTERNS.find(p => command.includes(p))?.replace('.sh', '') || 'unknown');
+
+    const entry = {
+      timestamp: new Date().toISOString(),
+      api,
+      command: command.substring(0, 200),
+      exit_code: exitCode,
+      error_snippet: (stderr || stdout).substring(0, 300),
+      was_raw_curl: isRawCurl,
+      was_tool: isWrapper,
+      resolved: false
+    };
+
+    try {
+      if (!existsSync(SIGNALS_DIR)) mkdirSync(SIGNALS_DIR, { recursive: true });
+      appendFileSync(LOG_FILE, JSON.stringify(entry) + '\n');
+    } catch {
+      // Don't block on log failure
+    }
+  }
+
+  if (hasError) {
     const tool = WRAPPER_PATTERNS.find(p => command.includes(p)) || 'unknown';
     console.log(
       `GTMOPS: ${tool} failed (exit ${exitCode}). ` +
