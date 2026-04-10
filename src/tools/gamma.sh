@@ -15,6 +15,13 @@
 #   - textMode=preserve keeps exact text (use for pipeline reports with numbers)
 #   - cardSplit=inputTextBreaks respects \n---\n for manual slide breaks
 #   - ~4 credits per slide
+#   - SHARING: Gamma API has NO endpoint to update an existing deck's sharing.
+#     sharingOptions MUST be set at generate time. If you forget, you have to
+#     open the deck in the Gamma UI and flip Share manually. Many workspace
+#     defaults are "noAccess" for external, which blocks teammates from opening
+#     shared links. This script defaults externalAccess=view so generated decks
+#     are shareable by default. Pass --external-access noAccess for private
+#     decks (e.g., sensitive client material).
 
 set -euo pipefail
 
@@ -104,6 +111,8 @@ case "$COMMAND" in
     mode="${ARG_mode:-preserve}"
     format="${ARG_format:-presentation}"
     split="${ARG_split:-inputTextBreaks}"
+    external_access="${ARG_external_access:-view}"
+    workspace_access="${ARG_workspace_access:-edit}"
 
     if [[ -n "$file" ]]; then
       text=$(cat "$file")
@@ -114,16 +123,31 @@ case "$COMMAND" in
       exit 1
     fi
 
+    case "$external_access" in
+      noAccess|view|comment|edit) ;;
+      *) echo "Error: --external-access must be one of: noAccess, view, comment, edit" >&2; exit 1 ;;
+    esac
+    case "$workspace_access" in
+      noAccess|view|comment|edit|fullAccess) ;;
+      *) echo "Error: --workspace-access must be one of: noAccess, view, comment, edit, fullAccess" >&2; exit 1 ;;
+    esac
+
     json=$(jq -n \
       --arg text "$text" \
       --arg mode "$mode" \
       --arg format "$format" \
       --arg split "$split" \
+      --arg external_access "$external_access" \
+      --arg workspace_access "$workspace_access" \
       '{
         inputText: $text,
         textMode: $mode,
         format: $format,
         cardSplit: $split,
+        sharingOptions: {
+          workspaceAccess: $workspace_access,
+          externalAccess: $external_access
+        },
         imageOptions: {
           source: "aiGenerated",
           stylePreset: "custom",
@@ -159,7 +183,12 @@ Gamma API wrapper (GTMOps)
 Usage: Gamma.sh <command> [--dry-run] [options]
 
 Commands:
-  generate    --text "content" OR --file path [--mode preserve|generate|condense] [--format presentation|document] [--split inputTextBreaks|auto]
+  generate    --text "content" OR --file path
+              [--mode preserve|generate|condense]
+              [--format presentation|document]
+              [--split inputTextBreaks|auto]
+              [--external-access noAccess|view|comment|edit]  (default: view = public link)
+              [--workspace-access noAccess|view|comment|edit|fullAccess]  (default: edit)
   status      --id GENERATION_ID
   themes      (list workspace themes)
   folders     (list workspace folders)
@@ -175,6 +204,11 @@ GOTCHAS:
   - Use --mode preserve for reports with exact numbers
   - Use \n---\n in text for manual slide breaks with --split inputTextBreaks
   - ~4 credits per slide, check balance in status response
+  - SHARING must be set at generate time. No API endpoint to update an existing
+    deck's sharing. If workspace default is noAccess, teammates see "you don't
+    have access" when you share the link. This tool defaults externalAccess
+    to "view" so generated links are shareable. Pass --external-access noAccess
+    for private decks (sensitive client material).
 USAGE
     ;;
 esac
